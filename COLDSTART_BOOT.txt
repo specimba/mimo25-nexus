@@ -1,0 +1,55 @@
+# NEXUS OS v3.2 — COLD START BOOT
+**Date:** 2026-04-23 | **Tests:** 622 passed | **API:** 7352
+
+Source: `src/nexus_os/` (READ ONLY unless tests pass)
+Tests: `python3 -m pytest tests/ -q --tb=short`
+API: `uvicorn nexus_os.api.server:app --host 0.0.0.0 --port 7352`
+
+## Five Core Pillars
+
+| Pillar | Module | Purpose |
+|--------|--------|---------|
+| Bridge | `src/nexus_os/bridge/` | HMAC auth, JSON-RPC |
+| Governor | `src/nexus_os/governor/` | KAIJU auth, trust scoring, RigorLLM gates |
+| Vault | `src/nexus_os/vault/` | 8-channel S-P-E-W memory |
+| Engine | `src/nexus_os/engine/` | Hermes intent routing, ToolGates |
+| Monitoring | `src/nexus_os/monitoring/` | TokenGuard, TALE budget |
+
+## Key Subsystems
+
+- **GMR** — Speculative model routing + half-open circuit breaker
+- **Trust Scorer** — Bayesian reputation, OR-Bench calibrated lanes
+- **TokenGuard** — Budget enforcement
+- **VAP Chain** — SHA-256 immutable audit trail
+- **Skillsmith** — Auto-registering skill discovery
+- **StressLab** — ISC-Bench TVD runner
+- **Relay** — OpenAI-compatible API proxy on 7352
+
+## Port Map
+
+| Port | Service |
+|------|---------|
+| 7352 | Governance API (primary) |
+| 7353 | TWAVE wrapper |
+| 7354 | Mock/fallback (dev) |
+
+## Local Models (Ollama)
+
+`qwen2.5-coder:7b`, `nemotron-3-nano:4b`, `deepseek-r1:8b`
+Strategy: local-first, cloud only when tier demands
+
+## Golden Rules
+
+1. Never `git add .` — always explicit paths
+2. All changes require passing tests first
+3. Never modify TWAVE core algorithms
+4. All agents follow their `docs/agents/AGENT_*.md`
+5. Only work tasks from `tasks/pending/`
+
+## Must-Read Files
+
+1. `COLDSTART_BOOT.txt` (this file)
+2. `tasks/FINALIZER_PROMPT.md` (mandatory 8-point acknowledgment)
+3. `tasks/coordination_prompt.md` (no independent missions)
+4. Your personal `docs/agents/AGENT_*.md`
+5. `tasks/owners.md` (team matrix)

@@ -1,0 +1,10 @@
+{
+  "id": "TASK-005",
+  "title": "Integrate OPUSman v6.2 with NEXUS modules + health monitoring + degradation detection",
+  "owner": "NEO",
+  "priority": "critical",
+  "description": "Make OPUSman load NEXUS modules (VaultManager, SuperLocalMemory, TrustScorer, VAP). Add /agent/health endpoint and degradation risk detection. Remove remaining standalone limitations.",
+  "status": "pending",
+  "created": "2026-04-23T22:55:00Z",
+  "progress": 0
+}
