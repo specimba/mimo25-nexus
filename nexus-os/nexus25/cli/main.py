@@ -47,6 +47,34 @@ def cmd_task_submit(session: RuntimeSession, args: list[str]) -> None:
         _print("Envelope valid — ready for dispatch")
 
 
+def cmd_doctor(session: RuntimeSession, args: list[str]) -> None:
+    from ..doctor.diagnostics import (
+        run_full_diagnostic, ProviderDoctor, TokenDoctor,
+        ToolDoctor, MemoryDoctor, RuntimeDoctor,
+    )
+
+    subcmd = args[0] if args else "all"
+
+    if subcmd == "all":
+        report = run_full_diagnostic(session)
+    elif subcmd == "provider":
+        report = ProviderDoctor().diagnose(session.router)
+    elif subcmd == "token":
+        report = TokenDoctor().diagnose(session.governance)
+    elif subcmd == "tool":
+        report = ToolDoctor().diagnose(session.tools)
+    elif subcmd == "memory":
+        report = MemoryDoctor().diagnose(session.vap, session.archivist)
+    elif subcmd == "runtime":
+        report = RuntimeDoctor().diagnose(session)
+    else:
+        _print(f"Unknown doctor subcommand: {subcmd}")
+        _print("Available: all, provider, token, tool, memory, runtime")
+        return
+
+    _print(report.summary())
+
+
 def cmd_interactive(session: RuntimeSession) -> None:
     _print("NEXUS OS Interactive CLI")
     _print("Type 'help' for commands, 'quit' to exit.\n")
@@ -69,8 +97,9 @@ def cmd_interactive(session: RuntimeSession) -> None:
             "audit": lambda: cmd_audit(session),
             "verify": lambda: cmd_verify(session),
             "submit": lambda: cmd_task_submit(session, rest.split() if rest else []),
+            "doctor": lambda: cmd_doctor(session, rest.split() if rest else []),
             "help": lambda: _print(
-                "Commands: status, providers, audit, verify, submit <brief>, help, quit"
+                "Commands: status, providers, audit, verify, submit <brief>, doctor [subcmd], help, quit"
             ),
         }
         handler = handlers.get(cmd)
@@ -113,6 +142,7 @@ def main(argv: Optional[list[str]] = None) -> None:
         "audit": lambda: cmd_audit(session),
         "verify": lambda: cmd_verify(session),
         "task": lambda: cmd_task_submit(session, rest),
+        "doctor": lambda: cmd_doctor(session, rest),
         "interactive": lambda: cmd_interactive(session),
     }
 
@@ -121,5 +151,5 @@ def main(argv: Optional[list[str]] = None) -> None:
         handler()
     else:
         _print(f"Unknown command: {command}")
-        _print("Available: status, providers, audit, verify, task, interactive")
+        _print("Available: status, providers, audit, verify, task, doctor, interactive")
         sys.exit(1)

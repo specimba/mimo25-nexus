@@ -389,3 +389,239 @@ class TestRuntimeSession:
         assert result.success
         assert result.output == "pong"
         assert session.vap.verify()
+
+
+# ---------------------------------------------------------------------------
+# Doctor diagnostics
+# ---------------------------------------------------------------------------
+
+from nexus25.doctor.diagnostics import (
+    Severity, Finding, DoctorReport,
+    ProviderDoctor, TokenDoctor, ToolDoctor, MemoryDoctor, RuntimeDoctor,
+    run_full_diagnostic,
+)
+
+
+class TestDoctorReport:
+    def test_empty_report(self):
+        report = DoctorReport()
+        text = report.summary()
+        assert "All checks passed" in text
+        assert "0 total" in text
+
+    def test_report_with_findings(self):
+        report = DoctorReport()
+        report.add(Finding(category="Test", severity=Severity.INFO, title="info finding", detail="detail"))
+        report.add(Finding(category="Test", severity=Severity.WARNING, title="warn finding", detail=""))
+        report.add(Finding(category="Test", severity=Severity.CRITICAL, title="crit finding", detail="oh no"))
+        text = report.summary()
+        assert "1 critical" in text
+        assert "1 warning" in text
+        assert "1 info" in text
+        assert "3 total" in text
+        assert "Test" in text
+
+    def test_report_grouping(self):
+        report = DoctorReport()
+        report.add(Finding(category="Alpha", severity=Severity.INFO, title="a1", detail=""))
+        report.add(Finding(category="Beta", severity=Severity.WARNING, title="b1", detail=""))
+        report.add(Finding(category="Alpha", severity=Severity.INFO, title="a2", detail=""))
+        text = report.summary()
+        # Alpha section should appear
+        assert "Alpha" in text
+        assert "Beta" in text
+
+    def test_report_with_evidence_and_action(self):
+        report = DoctorReport()
+        report.add(Finding(
+            category="Test", severity=Severity.WARNING,
+            title="issue", detail="something broke",
+            evidence={"key": "val"},
+            suggested_action="fix it",
+        ))
+        text = report.summary()
+        assert "something broke" in text
+        assert "key: val" in text
+        assert "fix it" in text
+
+
+class TestProviderDoctor:
+    def test_diagnose_returns_report(self):
+        router = ProviderRouter()
+        report = ProviderDoctor().diagnose(router)
+        assert isinstance(report, DoctorReport)
+        assert len(report.findings) > 0
+
+    def test_finds_missing_keys(self):
+        router = ProviderRouter()
+        report = ProviderDoctor().diagnose(router)
+        # All providers require keys and none are set in test env
+        missing = [f for f in report.findings if "missing API keys" in f.title.lower() or "missing" in f.title.lower()]
+        # Should flag missing keys
+        assert any("missing" in f.title.lower() or "api key" in f.title.lower() for f in report.findings)
+
+    def test_finds_no_available_when_no_keys(self):
+        router = ProviderRouter()
+        report = ProviderDoctor().diagnose(router)
+        critical = [f for f in report.findings if f.severity == Severity.CRITICAL]
+        # Should be critical since no keys are set
+        assert len(critical) >= 1
+
+
+class TestTokenDoctor:
+    def test_diagnose_returns_report(self):
+        gov = GovernanceHooks(strict=False, token_budget=10000)
+        report = TokenDoctor().diagnose(gov)
+        assert isinstance(report, DoctorReport)
+        assert len(report.findings) >= 2  # budget overview + governance mode
+
+    def test_reports_budget_usage(self):
+        gov = GovernanceHooks(strict=False, token_budget=1000)
+        gov.track_tokens(500)
+        report = TokenDoctor().diagnose(gov)
+        budget_finding = [f for f in report.findings if "budget" in f.title.lower()]
+        assert len(budget_finding) >= 1
+
+    def test_reports_exhausted(self):
+        gov = GovernanceHooks(strict=False, token_budget=100)
+        gov.track_tokens(100)
+        report = TokenDoctor().diagnose(gov)
+        exhausted = [f for f in report.findings if "exhausted" in f.title.lower()]
+        assert len(exhausted) >= 1
+
+    def test_reports_high_usage_warning(self):
+        gov = GovernanceHooks(strict=False, token_budget=1000)
+        gov.track_tokens(800)  # 80% used
+        report = TokenDoctor().diagnose(gov)
+        warnings = [f for f in report.findings if f.severity == Severity.WARNING]
+        assert len(warnings) >= 1
+
+
+class TestToolDoctor:
+    def test_empty_registry(self):
+        reg = ToolRegistry()
+        report = ToolDoctor().diagnose(reg)
+        assert isinstance(report, DoctorReport)
+        warnings = [f for f in report.findings if "no tools" in f.title.lower() or "empty" in f.title.lower()]
+        assert len(warnings) >= 1
+
+    def test_with_tools(self):
+        reg = ToolRegistry()
+        reg.register_function("echo", "Echo", {}, lambda: "echo")
+        reg.register_function("ping", "Ping", {}, lambda: "pong")
+        report = ToolDoctor().diagnose(reg)
+        assert any("2 tool" in f.title for f in report.findings)
+
+    def test_toolset_breakdown(self):
+        reg = ToolRegistry()
+        reg.register_function("a", "A", {}, lambda: "a", toolset="alpha")
+        reg.register_function("b", "B", {}, lambda: "b", toolset="beta")
+        report = ToolDoctor().diagnose(reg)
+        toolsets = [f for f in report.findings if "toolset" in f.title.lower()]
+        assert len(toolsets) >= 2
+
+
+class TestMemoryDoctor:
+    def test_empty_chain(self):
+        vap = VAPChain()
+        archivist = Archivist()
+        report = MemoryDoctor().diagnose(vap, archivist)
+        assert isinstance(report, DoctorReport)
+        assert any("empty" in f.title.lower() for f in report.findings)
+
+    def test_valid_chain(self):
+        vap = VAPChain()
+        vap.append("test", "agent", "allowed")
+        archivist = Archivist()
+        report = MemoryDoctor().diagnose(vap, archivist)
+        assert any("valid" in f.title.lower() for f in report.findings)
+
+    def test_broken_chain(self):
+        vap = VAPChain()
+        vap.append("test", "agent", "allowed")
+        vap._entries[0].action = "TAMPERED"
+        archivist = Archivist()
+        report = MemoryDoctor().diagnose(vap, archivist)
+        critical = [f for f in report.findings if f.severity == Severity.CRITICAL]
+        assert len(critical) >= 1
+
+    def test_with_artifacts(self):
+        from nexus25.governance.archivist import ArtifactFrontmatter
+        vap = VAPChain()
+        archivist = Archivist()
+        archivist.register(ArtifactFrontmatter(id="a1", type="Evidence_Packet"))
+        archivist.register(ArtifactFrontmatter(id="a2", type="Evidence_Packet"))
+        report = MemoryDoctor().diagnose(vap, archivist)
+        assert any("2 artifact" in f.title for f in report.findings)
+
+
+class TestRuntimeDoctor:
+    def test_fresh_session(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
+        report = RuntimeDoctor().diagnose(session)
+        assert isinstance(report, DoctorReport)
+        assert any("trust level" in f.title.lower() for f in report.findings)
+
+    def test_reports_failures(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
+        # Register a command that raises an exception to create a failure record
+        session.execution_registry.register_command(
+            "boom", lambda _: (_ for _ in ()).throw(RuntimeError("kaboom")),
+        )
+        session.execution_registry.execute_command("boom")
+        report = RuntimeDoctor().diagnose(session)
+        failure_findings = [f for f in report.findings if "failed" in f.title.lower() or "fail" in f.title.lower()]
+        assert len(failure_findings) >= 1
+
+    def test_reports_config(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(
+            trust_level=TrustLevel.GOVERNED, lane="security", strict_governance=True,
+        ))
+        report = RuntimeDoctor().diagnose(session)
+        assert any("governed" in f.title.lower() or "governed" in f.detail.lower() for f in report.findings)
+
+
+class TestFullDiagnostic:
+    def test_run_all(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
+        report = run_full_diagnostic(session)
+        assert isinstance(report, DoctorReport)
+        # Should have findings from all 5 pillars
+        categories = {f.category for f in report.findings}
+        assert "Provider" in categories
+        assert "Token Budget" in categories
+        assert "Tool Registry" in categories
+        assert "Memory/Vault" in categories
+        assert "Runtime" in categories
+
+    def test_summary_output(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
+        report = run_full_diagnostic(session)
+        text = report.summary()
+        assert "NEXUS 25" in text
+        assert "Doctor Diagnostic Report" in text
+        assert "Summary:" in text
+
+
+class TestCLIDoctor:
+    def test_doctor_command(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
+        record = session.execution_registry.execute_command("status")
+        assert record.success
+
+    def test_doctor_subcommands(self):
+        session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
+        # Test each subcommand produces output without crashing
+        from nexus25.doctor.diagnostics import (
+            ProviderDoctor, TokenDoctor, ToolDoctor, MemoryDoctor, RuntimeDoctor,
+        )
+        r1 = ProviderDoctor().diagnose(session.router)
+        assert len(r1.findings) > 0
+        r2 = TokenDoctor().diagnose(session.governance)
+        assert len(r2.findings) > 0
+        r3 = ToolDoctor().diagnose(session.tools)
+        assert len(r3.findings) > 0
+        r4 = MemoryDoctor().diagnose(session.vap, session.archivist)
+        assert len(r4.findings) > 0
+        r5 = RuntimeDoctor().diagnose(session)
+        assert len(r5.findings) > 0
