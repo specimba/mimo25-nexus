@@ -1,6 +1,6 @@
-# NEXUS OS
+# NEXUS 25 — Agent Pack
 
-Unified agent platform with governance, provider routing, and multi-platform gateway.
+Clean-room agent platform with free-tier provider routing, tool registry, governance, and deployment-ready scripts. Designed to complement the main NEXUS OS v3.0 codebase.
 
 ## Quick Start
 
@@ -8,98 +8,113 @@ Unified agent platform with governance, provider routing, and multi-platform gat
 cd nexus-os
 pip install -e ".[dev]"
 pytest tests/ -v
-nexusctl status
-nexusctl providers
-nexusctl interactive
+nexus25 status
+nexus25 providers
+nexus25 interactive
+```
+
+## One-Shot Gastown Deploy
+
+```bash
+bash deploy/gastown_quickstart.sh
 ```
 
 ## Architecture
 
 ```
-nexus_os/
-├── providers/       # Smart LLM provider routing (7 free-tier providers)
-│   ├── catalog.py   # Provider metadata (Groq, Cerebras, OpenRouter, Google, HF, GitHub, Mistral)
-│   ├── rate_limiter.py  # Sliding-window rate tracking
-│   └── router.py    # Quality/speed/cost-aware routing
-├── tools/           # Permission-aware tool registry
-│   ├── permissions.py   # Trust levels (untrusted → red_team)
-│   └── registry.py      # OpenAI function-calling schema, dispatch with audit
-├── governance/      # nexusalpha governance integration
-│   ├── hooks.py     # Governor check + TokenGuard budget
-│   ├── vap_chain.py # SHA-256 immutable audit chain
-│   └── archivist.py # Mythos integrity gate + promotion pipeline
-├── gateway/         # Multi-platform message dispatch
-│   └── core.py      # Session management, command routing
-├── orchestration/   # Agent workflows
-│   ├── agent_loop.py    # Sequential tool-use loop
-│   └── workflow.py      # DAG engine with checkpoints + human-in-the-loop
-├── harness/         # Session bootstrap
+nexus25/
+├── providers/             # 7 free-tier LLM providers + rate limiter + smart router
+│   ├── catalog.py         # Groq, Cerebras, OpenRouter, Google, HF, GitHub, Mistral
+│   ├── rate_limiter.py    # Sliding-window RPM + TPM tracking
+│   └── router.py          # Quality/speed/cost/balanced scoring
+├── tools/                 # Permission-aware tool registry
+│   ├── permissions.py     # Trust levels (untrusted → red_team)
+│   └── registry.py        # OpenAI function-calling schema, dispatch with audit
+├── governance/            # Archivist integrity gate
+│   ├── hooks.py           # Governor check + token budget + audit chain
+│   ├── vap_chain.py       # SHA-256 immutable audit chain
+│   └── archivist.py       # Mythos artifact validation + promotion pipeline
+├── gateway/               # Multi-platform message dispatch
+│   └── core.py            # Session management, command routing
+├── orchestration/         # Agent workflows
+│   ├── agent_loop.py      # Sequential tool-use loop with provider routing
+│   └── workflow.py        # DAG engine: edges, NodeType, checkpoints, HITL
+├── harness/               # Session bootstrap
 │   ├── execution_registry.py  # Command/tool execution tracking
 │   └── runtime_session.py     # One-call bootstrap wiring all subsystems
-├── contracts/       # Structured task/evidence schemas
+├── contracts/             # Structured task/evidence schemas
 │   ├── task_envelope.py   # High-capability task dispatch contracts
 │   └── evidence_packet.py # Evidence with promotion tracking
-└── cli/             # nexusctl CLI
-    └── main.py      # status, providers, audit, verify, task, interactive
+└── cli/                   # nexus25 CLI
+    └── main.py            # status, providers, audit, verify, task, interactive
+
+deploy/
+├── gastown_quickstart.sh  # One-shot Gastown deployment
+├── zilliz_client.py       # Dual-cluster Zilliz vector memory client
+├── openshell_setup.sh     # NVIDIA OpenShell CLI installer
+├── mission_router.py      # Mission routing protocol parser
+└── README.md              # Deploy quick reference
 ```
 
 ## CLI Commands
 
 | Command | Description |
 |---------|-------------|
-| `nexusctl status` | System status (providers, tokens, VAP chain) |
-| `nexusctl providers` | List available LLM providers |
-| `nexusctl audit` | Show governance audit log |
-| `nexusctl verify` | Verify VAP chain integrity |
-| `nexusctl task <brief>` | Submit a task envelope |
-| `nexusctl interactive` | Interactive REPL |
+| `nexus25 status` | System status (providers, tokens, VAP chain) |
+| `nexus25 providers` | List available LLM providers |
+| `nexus25 audit` | Show governance audit log |
+| `nexus25 verify` | Verify VAP chain integrity |
+| `nexus25 task <brief>` | Submit a task envelope |
+| `nexus25 interactive` | Interactive REPL |
 
 ## Programmatic Usage
 
 ```python
-from nexus_os.harness.runtime_session import RuntimeSession, RuntimeConfig
-from nexus_os.tools.permissions import TrustLevel
+from nexus25.harness.runtime_session import RuntimeSession, RuntimeConfig
 
-# Bootstrap a full session
-session = RuntimeSession.bootstrap(RuntimeConfig(
-    trust_level=TrustLevel.STANDARD,
-    lane="local",
-    strict_governance=False,
-))
+session = RuntimeSession.bootstrap(RuntimeConfig(strict_governance=False))
 
-# Register tools
-session.tools.register_function("greet", "Greet someone", 
+session.tools.register_function("greet", "Greet someone",
     {"type": "object", "properties": {"name": {"type": "string"}}},
     lambda name="": f"Hello, {name}!")
 
-# Dispatch
 result = session.tools.dispatch("greet", {"name": "NEXUS"})
 print(result.output)  # "Hello, NEXUS!"
-
-# Verify audit chain
-print(session.vap.verify())  # True
 ```
 
-## Provider Routing
+## Deployment
+
+### Zilliz Memory (Dual-Cluster)
+
+```bash
+export ZILLIZ_SERVERLESS_URI=https://...
+export ZILLIZ_SERVERLESS_TOKEN=...
+export ZILLIZ_TOWN_URI=https://...
+export ZILLIZ_TOWN_TOKEN=...
+python -c "from deploy.zilliz_client import ZillizClient; ZillizClient().health_check()"
+```
+
+### OpenShell Sandbox
+
+```bash
+bash deploy/openshell_setup.sh
+openshell --version
+```
+
+### Mission Routing
 
 ```python
-from nexus_os.providers.router import ProviderRouter
-
-router = ProviderRouter()
-result = router.select(min_context=32_000, prefer="quality")
-if result:
-    print(f"{result.provider.name}/{result.model.id} — {result.reason}")
+from deploy.mission_router import MissionRouter
+router = MissionRouter()
+result = router.parse(mission_text)
+print(result["mode"], result["agents"])
 ```
 
-## Governance
+## Relationship to NEXUS OS v3.0
 
-```python
-from nexus_os.governance.hooks import GovernanceHooks
+This pack (`nexus25`) is a **complementary** package to the main `nexus_os` v3.0 codebase:
 
-gov = GovernanceHooks(strict=False, token_budget=50_000)
-decision = gov.check_tool_access("read_file")
-print(decision.decision)  # DecisionType.ALLOWED
+- **v3.0** (`src/nexus_os/`): Production infrastructure — KAIJU governor, GMR 50+ model relay, vault/5-track memory, swarm, A2A bridge
+- **nexus25**: Clean architecture — free-tier providers, tool registry, contracts, workflow checkpoints, CLI, deployment scripts
 
-gov.track_tokens(1000)
-print(gov.tokens_remaining)  # 49000
-```
+Both packages coexist. Bridge imports wire them together as needed.

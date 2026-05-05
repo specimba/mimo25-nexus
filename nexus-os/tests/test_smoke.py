@@ -2,23 +2,23 @@
 
 import pytest
 
-from nexus_os.providers.catalog import ProviderCatalog, Provider, Model
-from nexus_os.providers.rate_limiter import RateLimiter
-from nexus_os.providers.router import ProviderRouter, RoutePreference
-from nexus_os.tools.registry import ToolRegistry, ToolDefinition
-from nexus_os.tools.permissions import PermissionContext, TrustLevel
-from nexus_os.governance.hooks import GovernanceHooks, DecisionType
-from nexus_os.governance.vap_chain import VAPChain
-from nexus_os.governance.archivist import (
+from nexus25.providers.catalog import ProviderCatalog, Provider, Model
+from nexus25.providers.rate_limiter import RateLimiter
+from nexus25.providers.router import ProviderRouter, RoutePreference
+from nexus25.tools.registry import ToolRegistry, ToolDefinition
+from nexus25.tools.permissions import PermissionContext, TrustLevel
+from nexus25.governance.hooks import GovernanceHooks, DecisionType
+from nexus25.governance.vap_chain import VAPChain
+from nexus25.governance.archivist import (
     Archivist, ArtifactFrontmatter, AuthorityScope, PromotionState, CacheClass,
 )
-from nexus_os.gateway.core import GatewayCore, GatewayEvent, Platform
-from nexus_os.orchestration.agent_loop import AgentLoop
-from nexus_os.orchestration.workflow import WorkflowGraph, WorkflowNode, WorkflowEngine
-from nexus_os.harness.execution_registry import ExecutionRegistry
-from nexus_os.harness.runtime_session import RuntimeSession, RuntimeConfig
-from nexus_os.contracts.task_envelope import TaskEnvelope, TaskOutputContract
-from nexus_os.contracts.evidence_packet import EvidencePacket, EvidenceClaim
+from nexus25.gateway.core import GatewayCore, GatewayEvent, Platform
+from nexus25.orchestration.agent_loop import AgentLoop
+from nexus25.orchestration.workflow import WorkflowGraph, WorkflowNode, WorkflowEngine
+from nexus25.harness.execution_registry import ExecutionRegistry
+from nexus25.harness.runtime_session import RuntimeSession, RuntimeConfig
+from nexus25.contracts.task_envelope import TaskEnvelope, TaskOutputContract
+from nexus25.contracts.evidence_packet import EvidencePacket, EvidenceClaim
 
 
 class TestProviderCatalog:

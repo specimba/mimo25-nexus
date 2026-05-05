@@ -58,7 +58,7 @@ class GovernanceHooks:
         self._lock = threading.Lock()
 
         try:
-            from nexus_os._governor_bridge import load_governor
+            from nexus25._governor_bridge import load_governor
             self._governor = load_governor()
         except (ImportError, Exception):
             pass
