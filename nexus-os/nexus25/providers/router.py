@@ -174,3 +174,43 @@ class ProviderRouter:
                 ))
         results.sort(key=lambda r: r.score, reverse=True)
         return results
+
+    def select_chain(
+        self,
+        min_context: int = 8192,
+        prefer: str | RoutePreference = RoutePreference.BALANCED,
+        task_type: str = "",
+        exclude: Optional[set[str]] = None,
+        max_candidates: int = 5,
+    ) -> list[RouteResult]:
+        """Return an ordered fallback chain of provider/model pairs.
+
+        The caller should try each in order; if one returns 402/429/error,
+        move to the next. This avoids the need for the caller to implement
+        its own fallback logic.
+        """
+        if isinstance(prefer, str):
+            prefer = RoutePreference(prefer)
+        exclude = exclude or set()
+
+        candidates: list[tuple[float, Provider, Model, str]] = []
+
+        for provider in self.catalog.enabled_providers():
+            if provider.name in exclude:
+                continue
+            if provider.requires_key and not os.environ.get(provider.api_key_env):
+                continue
+            for model in provider.models:
+                if model.context_window < min_context:
+                    continue
+                if not self.rate_limiter.can_proceed(provider.name):
+                    continue
+                score, reason = self._score(provider, model, prefer, task_type)
+                candidates.append((score, provider, model, reason))
+
+        candidates.sort(key=lambda c: c[0], reverse=True)
+        return [
+            RouteResult(provider=p, model=m, score=s, reason=r)
+            for s, p, m, r in candidates[:max_candidates]
+        ]
+

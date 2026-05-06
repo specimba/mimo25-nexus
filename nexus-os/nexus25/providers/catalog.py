@@ -161,6 +161,33 @@ class ProviderCatalog:
                           quality_score=80, speed_toks_per_sec=300),
                 ],
             ),
+            Provider(
+                name="kilo",
+                base_url="https://api.kilo.ai/api/gateway",
+                api_key_env="KILO_API_KEY",
+                requests_per_minute=30,
+                tokens_per_minute=100_000,
+                tier="free",
+                requires_key=True,
+                models=[
+                    Model("inclusionai/ling-2.6-1t:free", "Ling 2.6 1T", 262_144,
+                          quality_score=99, speed_toks_per_sec=80),
+                    Model("stepfun/step-3.5-flash:free", "Step 3.5 Flash", 262_144,
+                          quality_score=93, speed_toks_per_sec=74),
+                    Model("nvidia/nemotron-3-super-120b-a12b:free", "Nemotron 3 Super 120B", 262_144,
+                          quality_score=62, speed_toks_per_sec=60),
+                    Model("tencent/hy3-preview:free", "HY3 Preview", 262_144,
+                          quality_score=56, speed_toks_per_sec=74),
+                    Model("nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free", "Nemotron 3 Nano 30B", 256_000,
+                          quality_score=41, speed_toks_per_sec=45),
+                    Model("poolside/laguna-m.1:free", "Laguna M.1", 131_072,
+                          quality_score=41, speed_toks_per_sec=45),
+                    Model("poolside/laguna-xs.2:free", "Laguna XS.2", 131_072,
+                          quality_score=41, speed_toks_per_sec=45),
+                    Model("baidu/qianfan-ocr-fast:free", "Qianfan OCR Fast", 65_536,
+                          quality_score=11, speed_toks_per_sec=30),
+                ],
+            ),
         ]
         for p in providers:
             self._providers[p.name] = p
@@ -183,3 +210,4 @@ class ProviderCatalog:
 
     def register(self, provider: Provider) -> None:
         self._providers[provider.name] = provider
+
