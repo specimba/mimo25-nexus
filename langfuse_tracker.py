@@ -4,9 +4,9 @@ import os
 
 # Initialize once
 langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-..."),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-..."),
-    host="https://cloud.langfuse.com"
+    public_key=os.environ.get("LANGFUSE_PUBLIC_KEY"),
+    secret_key=os.environ.get("LANGFUSE_SECRET_KEY"),
+    host=os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
 )
 
 def track_model_call(provider, model, prompt, response, tokens_in, tokens_out, latency_ms):
