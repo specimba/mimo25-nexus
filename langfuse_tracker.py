@@ -3,10 +3,11 @@ from datetime import datetime
 import os
 
 # Initialize once
+host = os.getenv("LANGFUSE_HOST", "https://cloud.langfuse.com")
 langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-..."),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-..."),
-    host="https://cloud.langfuse.com"
+    public_key=os.getenv("LANGFUSE_PUBLIC_KEY"),
+    secret_key=os.getenv("LANGFUSE_SECRET_KEY"),
+    host=host
 )
 
 def track_model_call(provider, model, prompt, response, tokens_in, tokens_out, latency_ms):
@@ -29,6 +30,7 @@ def track_model_call(provider, model, prompt, response, tokens_in, tokens_out, l
 
 # Example usage with modelrelay:
 def call_via_modelrelay(prompt, model="openai/gpt-4"):
+    """Call a model via modelrelay and track the call in Langfuse."""
     import time, requests
 
     start = time.time()
