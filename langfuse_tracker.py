@@ -3,10 +3,25 @@ from datetime import datetime
 import os
 
 # Initialize once
+public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+host = os.environ.get("LANGFUSE_HOST", "https://cloud.langfuse.com")
+
+if not public_key:
+    raise RuntimeError(
+        "LANGFUSE_PUBLIC_KEY environment variable is required. "
+        "Set it to enable telemetry; without it Langfuse init would silently drop traces."
+    )
+if not secret_key:
+    raise RuntimeError(
+        "LANGFUSE_SECRET_KEY environment variable is required. "
+        "Set it to enable telemetry; without it Langfuse init would silently drop traces."
+    )
+
 langfuse = Langfuse(
-    public_key=os.getenv("LANGFUSE_PUBLIC_KEY", "pk-lf-..."),
-    secret_key=os.getenv("LANGFUSE_SECRET_KEY", "sk-lf-..."),
-    host="https://cloud.langfuse.com"
+    public_key=public_key,
+    secret_key=secret_key,
+    host=host
 )
 
 def track_model_call(provider, model, prompt, response, tokens_in, tokens_out, latency_ms):
